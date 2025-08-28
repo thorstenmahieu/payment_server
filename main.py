@@ -16,9 +16,10 @@ class PaymentForm(BaseModel):
     currency: str
 
 class PaymentAttemptForm(BaseModel):
-    payment_id: int
-    status: str
-    attempt_time: Optional[datetime] = None
+    payment_request_id: int
+    payed_amount: float
+    payer_account_number: str
+    payment_currency: str 
 
 def read_sql_file(file_path):
     with open(file_path, 'r') as file:
@@ -58,18 +59,18 @@ async def payment_request(data: Annotated[PaymentForm, Form()]):
         conn.close()
 
 
-
 @app.post("/payment_attempts")
-async def payment_attempts(payment_request_id: int, payed_amount:float, payer_account_number: str, payment_currency: str ):
+async def payment_attempts(payment_request_id: int, payed_amount: float, payer_account_number: str, payment_currency: str ):
     conn = sqlite3.connect('payments.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT requester_account_number,request_amount,currency,request_time,status FROM payment_requests WHERE request_id = ?', (payment_request_id,))
-    requester_account_number,request_amount,request_currency,request_time,status = cursor.fetchall()
+    cursor.execute('SELECT requester_account_number, request_amount,currency, request_time, status FROM payment_requests WHERE request_id = ?', (payment_request_id,))
+    requester_account_number, request_amount, request_currency, request_time,status = cursor.fetchall()
     if status != 'pending':
         return {"status": "Payment request not pending"}, 400
     elif datetime.now() > request_time + timedelta(minutes=EXPIRY_TIME_MINUTES):
         cursor.execute('UPDATE payment_requests SET status = ? WHERE request_id = ?', ('expired', payment_request_id))
         conn.commit()
+        conn.close()
         return {"status": "Payment request expired"}, 400
     else:
         request_amount = float(request_amount)
@@ -82,14 +83,23 @@ async def payment_attempts(payment_request_id: int, payed_amount:float, payer_ac
         amount_in_payment_currency = amount_in_usd * conversion_rate_payment
         payed_amount = float(payed_amount)
         if abs(payed_amount) - abs(amount_in_payment_currency) > 0.01: # allow small rounding differences
+            cursor.execute('UPDATE payment_requests SET status = ? WHERE request_id = ?', ('failed', payment_request_id))
+            conn.commit()
+            conn.close()
             return {"status": "Incorrect payed amount"}, 400
         else:
+            cursor.execute('UPDATE payment_requests SET status = ? WHERE request_id = ?', ('executed', payment_request_id))
             cursor.execute('''
-            INSERT INTO payments (payment_amount, payment_time, payment_request_id, payer_account_number, currency, status)
+            INSERT INTO payments (payment_amount, payment_time, payment_request_id, payer_account_number, currency)
             VALUES (?, ?, ?, ?, ?, ?)
-            ''', (payed_amount, datetime.now(), payment_request_id, payer_account_number, payment_currency, 'executed'))
+            ''', (payed_amount, datetime.now(), payment_request_id, payer_account_number, payment_currency))
             conn.commit()
+            conn.close()
+            return {"status": "Payment attempt succeeded"}, 200
+        
+        
+
         
     
-    return {"status": "Payment attempt recorded"}
+    
 
