@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from typing import Optional, Annotated
 import sqlite3
 from datetime import datetime, timedelta
+import pytest
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -48,7 +49,7 @@ async def payment_request(data: Annotated[PaymentForm, Form()]):
         cursor.execute('''
         INSERT INTO payment_requests (requester_account_number, request_amount, currency, request_time, status)
         VALUES (?, ?, ?, ?, ?)
-        ''', (data.name, data.account_number, data.amount, data.currency, datetime.now(), 'pending'))
+        ''', (data.account_number, data.amount, data.currency, datetime.now(), 'pending'))
         cursor.execute('INSERT INTO persons (name, account_number) VALUES (?, ?)', (data.name, data.account_number))
         conn.commit()
         return {"status": "Payment request received", "received": data

@@ -33,15 +33,15 @@ CREATE TABLE IF NOT EXISTS "persons" (
 	PRIMARY KEY("account_number")
 );
 
-INSERT INTO "currency" (conversion_rate, currency_name) VALUES (1.0, 'USD');
-INSERT INTO "currency" (conversion_rate, currency_name) VALUES (0.85, 'EUR');
-INSERT INTO "currency" (conversion_rate, currency_name) VALUES (110.0, 'JPY');
+INSERT OR IGNORE INTO "currency" (conversion_rate, currency_name) VALUES (1.0, 'USD');
+INSERT OR IGNORE INTO "currency" (conversion_rate, currency_name) VALUES (0.85, 'EUR');
+INSERT OR IGNORE INTO "currency" (conversion_rate, currency_name) VALUES (110.0, 'JPY');
 
-INSERT INTO "persons" (account_number, name) VALUES ('BE84 3410 1235 5486', 'Thorsten');
-INSERT INTO "persons" (account_number, name) VALUES ('BE84 5486 3410 1235', 'Maarten');
-INSERT INTO "persons" (account_number, name) VALUES ('BE84 3410 5486 1235', 'Mattias');
+INSERT OR IGNORE INTO "persons" (account_number, name) VALUES ('BE84 3410 1235 5486', 'Thorsten');
+INSERT OR IGNORE INTO "persons" (account_number, name) VALUES ('BE84 5486 3410 1235', 'Maarten');
+INSERT OR IGNORE INTO "persons" (account_number, name) VALUES ('BE84 3410 5486 1235', 'Mattias');
 
-INSERT INTO "payment_requests" (request_id, requester_account_number, request_amount, currency, request_time, status) VALUES (1, 'BE84 3410 1235 5486', 100, 'USD', 1622548800, 'PENDING');
+INSERT OR IGNORE INTO "payment_requests" (request_id, requester_account_number, request_amount, currency, request_time, status) VALUES (1, 'BE84 3410 1235 5486', 100, 'USD', 1622548800, 'PENDING');
 
-INSERT INTO "payments" (payment_id, payment_amount, payment_time, payment_request_id, payer_account_number, currency) VALUES (1, 100.0, 1622721600, 1, 'BE84 5486 3410 1235', 'USD');
+INSERT OR IGNORE INTO "payments" (payment_id, payment_amount, payment_time, payment_request_id, payer_account_number, currency) VALUES (1, 100.0, 1622721600, 1, 'BE84 5486 3410 1235', 'USD');
 COMMIT;
