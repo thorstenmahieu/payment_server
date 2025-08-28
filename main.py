@@ -41,17 +41,22 @@ async def root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/payment_request")
+
 async def payment_request(data: Annotated[PaymentForm, Form()]):
     conn = sqlite3.connect('payments.db')
     cursor = conn.cursor()
     
     try:
+        request_time = datetime.now().timestamp()
         cursor.execute('''
         INSERT INTO payment_requests (requester_account_number, request_amount, currency, request_time, status)
         VALUES (?, ?, ?, ?, ?)
-        ''', (data.account_number, data.amount, data.currency, datetime.now(), 'pending'))
-        cursor.execute('INSERT INTO persons (name, account_number) VALUES (?, ?)', (data.name, data.account_number))
+        ''', (data.account_number, data.amount, data.currency, request_time, 'pending'))
+        cursor.execute('INSERT OR IGNORE INTO persons (name, account_number) VALUES (?, ?)', (data.name, data.account_number))
+        cursor.execute('SELECT request_id FROM payment_requests WHERE requester_account_number = ? AND request_time = ?', (data.account_number, request_time))
+        request_id = cursor.fetchone()[0]
         conn.commit()
+        data = {"request_id": request_id, "amount": data.amount, "currency": data.currency, "request_time" : request_time, "status": "pending"}
         return {"status": "Payment request received", "received": data
         }, 200
     except sqlite3.Error as e:
@@ -65,22 +70,22 @@ async def payment_attempts(payment_request_id: int, payed_amount: float, payer_a
     conn = sqlite3.connect('payments.db')
     cursor = conn.cursor()
     cursor.execute('SELECT requester_account_number, request_amount,currency, request_time, status FROM payment_requests WHERE request_id = ?', (payment_request_id,))
-    requester_account_number, request_amount, request_currency, request_time,status = cursor.fetchall()
+    requester_account_number, request_amount, request_currency, request_time, status = cursor.fetchall()[0]
     if status != 'pending':
         return {"status": "Payment request not pending"}, 400
-    elif datetime.now() > request_time + timedelta(minutes=EXPIRY_TIME_MINUTES):
+    elif datetime.now().timestamp() > request_time + EXPIRY_TIME_MINUTES*60:
         cursor.execute('UPDATE payment_requests SET status = ? WHERE request_id = ?', ('expired', payment_request_id))
         conn.commit()
         conn.close()
         return {"status": "Payment request expired"}, 400
     else:
         request_amount = float(request_amount)
-        cursor.execute('SELECT conversion_rate FROM currency WHERE currency = ? ', (request_currency,)) 
-        conversion_rate_request = float(cursor.fetchone()) # usd to request_currency
+        cursor.execute('SELECT conversion_rate FROM currency WHERE currency_name = ? ', (request_currency,)) 
+        conversion_rate_request = float(cursor.fetchone()[0]) # usd to request_currency
         amount_in_usd = request_amount / conversion_rate_request
 
-        cursor.execute('SELECT conversion_rate FROM currency WHERE currency = ? ', (payment_currency,)) 
-        conversion_rate_payment = float(cursor.fetchone()) # usd to payment_currency
+        cursor.execute('SELECT conversion_rate FROM currency WHERE currency_name = ? ', (payment_currency,)) 
+        conversion_rate_payment = float(cursor.fetchone()[0]) # usd to payment_currency
         amount_in_payment_currency = amount_in_usd * conversion_rate_payment
         payed_amount = float(payed_amount)
         if abs(payed_amount) - abs(amount_in_payment_currency) > 0.01: # allow small rounding differences
@@ -92,8 +97,8 @@ async def payment_attempts(payment_request_id: int, payed_amount: float, payer_a
             cursor.execute('UPDATE payment_requests SET status = ? WHERE request_id = ?', ('executed', payment_request_id))
             cursor.execute('''
             INSERT INTO payments (payment_amount, payment_time, payment_request_id, payer_account_number, currency)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ''', (payed_amount, datetime.now(), payment_request_id, payer_account_number, payment_currency))
+            VALUES (?, ?, ?, ?, ?)
+            ''', (payed_amount, datetime.now().timestamp(), payment_request_id, payer_account_number, payment_currency))
             conn.commit()
             conn.close()
             return {"status": "Payment attempt succeeded"}, 200
