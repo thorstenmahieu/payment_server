@@ -1,0 +1,18 @@
+<html>
+    <head><title>Payment server</title></head>
+    <body>
+        <h1>Payment server</h1>
+        <p>This is a simple payment server.</p>
+        <form action="/payment_request" method="post" >
+            <input type="text" id="name" name="name" placeholder="Name">
+            <input type="text" id="account_number" name="account_number" placeholder="Account Number" required>
+            <input type="number" id="amount" name="amount" placeholder="Amount" step="0.01" required>
+            <select name="currency" id="currency" required>
+                <option value="USD">US Dollars (USD)</option>
+                <option value="EUR">Euros (EUR)</option>
+                <option value="JPY">Japanese Yen (JPY)</option>
+            </select>
+            <input type="submit" value="Create Payment Request">
+        </form>
+    </body>
+</html>
