@@ -28,7 +28,7 @@ def test_payment_request():
     assert "request_id" in data["received"]
 
 def test_payment_attempts():
-    # First, create a payment request to get a valid request_id
+    # Eerst een betalingsverzoek maken om aan een geldige request_id te komen
     json={
         "name": "Thorsten",
         "account_number": "BE8425437531",
@@ -39,8 +39,8 @@ def test_payment_attempts():
     assert response.status_code == 200
     request_id = response.json()["received"]["request_id"]
 
-    # Now, attempt to pay the request
-    sleep(1)  # Ensure a slight delay to avoid timing issues
+    # Betaling uitvoeren
+    sleep(1)
     response = client.post("/payment_attempts", json={
         "payment_request_id": request_id,
         "name": "Marcel",
@@ -56,7 +56,7 @@ def test_payment_attempts():
     assert data["received"]["payer_account_number"] == "BE1234567890"
     assert data["received"]["payment_currency"] == "USD"
 
-    # A second attempt should fail since the request is already paid
+    # Proberen om nog een keer te betalen op hetzelfde verzoek
     sleep(5)
     response = client.post("/payment_attempts", json={
         "payment_request_id": request_id,
@@ -80,7 +80,7 @@ def test_payment_attempts():
     assert data["status"] == "Payment request not pending"
 
 def test_expired_payment_request():
-    # Create a payment request
+    # Maak een betalingsverzoek
     json={
         "name": "Thorsten",
         "account_number": "BE8425437531",
@@ -90,7 +90,7 @@ def test_expired_payment_request():
     response = client.post("/payment_requests", json=json)
     assert response.status_code == 200
     request_id = response.json()["received"]["request_id"]
-    sleep(61)  
+    sleep(61)  # Wacht tot het verzoek is verlopen (EXPIRY_TIME_MINUTES is 1 minuut)
     response = client.post("/payment_attempts", json={
         "payment_request_id": request_id,
         "payed_amount": 50,
@@ -102,9 +102,9 @@ def test_expired_payment_request():
     assert data["status"] == "Payment request expired"
 
 def test_different_currency_payment():
-    # Create a payment request in USD
+    # Maak een betalingsverzoek in USD
     json={
-        "name": "Alice",
+        "name": "Maarten",
         "account_number": "BE9988776655",
         "amount": 100,
         "currency": "USD"   
@@ -112,7 +112,7 @@ def test_different_currency_payment():
     response = client.post("/payment_requests", json=json)
     assert response.status_code == 200
     request_id = response.json()["received"]["request_id"]
-    # Attempt to pay the request in EUR
+    # Probeer in EUR te betalen
     response = client.post("/payment_attempts", json={
         "payment_request_id": request_id,
         "payed_amount": 85,  # 1 USD = 0.85 EUR
@@ -128,9 +128,9 @@ def test_different_currency_payment():
     assert data["received"]["payment_currency"] == "EUR"
 
 def test_incorrect_amount_payment():
-    # Create a payment request in USD
+    # maak een betalingsverzoek
     json={
-        "name": "Bob",
+        "name": "Jan",
         "account_number": "BE1122334455",
         "amount": 200,
         "currency": "USD"   
@@ -138,10 +138,10 @@ def test_incorrect_amount_payment():
     response = client.post("/payment_requests", json=json)
     assert response.status_code == 200
     request_id = response.json()["received"]["request_id"]
-    # Attempt to pay the request with an incorrect amount
+    # Probeer een verkeerd bedrag te betalen
     response = client.post("/payment_attempts", json={
         "payment_request_id": request_id,
-        "payed_amount": 190,  # Incorrect amount
+        "payed_amount": 190,  # Incorrect
         "payer_account_number": "BE6677889900",
         "payment_currency": "USD"
     })
@@ -151,7 +151,7 @@ def test_incorrect_amount_payment():
 
 def test_payment_request_not_found():
     response = client.post("/payment_attempts", json={
-        "payment_request_id": 9999,  # Non-existent request_id
+        "payment_request_id": 9999,  # onbekend ID
         "payed_amount": 50,
         "payer_account_number": "BE1234567890",
         "payment_currency": "USD"

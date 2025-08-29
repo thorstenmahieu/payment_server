@@ -2,9 +2,9 @@ from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from typing import Optional, Annotated
+from typing import Optional
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -46,11 +46,11 @@ async def payment_request(data: Request):
     try:
         if data.headers.get("content-type") == "application/x-www-form-urlencoded":
             form_data = await data.form()
-            data = PaymentForm(**form_data)
-        else:
+        elif data.headers.get("content-type") == "application/json":
             form_data = await data.json()
-            data = PaymentForm(**form_data)
-
+        else:
+            return JSONResponse(content={"status": "Unsupported Media Type"}, status_code=415)
+        data = PaymentForm(**form_data)
         conn = sqlite3.connect('payments.db')
         cursor = conn.cursor()
     
@@ -67,7 +67,7 @@ async def payment_request(data: Request):
         cursor.execute('SELECT request_id FROM payment_requests WHERE requester_account_number = ? AND request_time = ?', (data.account_number, request_time))
         request_id = cursor.fetchone()[0]
         conn.commit()
-        received = {"request_id": request_id, "amount": data.amount, "currency": data.currency, "name": data.name, "request_time" : request_time, "status": "pending"}
+        received = {"request_id": request_id, "name": data.name, "account_number": data.account_number , "amount": data.amount, "currency": data.currency,  "request_time" : request_time, "status": "pending"}
         return JSONResponse(content={"status": "Payment request received", "received": received
         }, status_code=200)
     except sqlite3.Error as e:
@@ -126,7 +126,11 @@ async def payment_attempts(data: Request):
                 INSERT INTO payments (payment_amount, payment_time, payment_request_id, payer_account_number, currency)
                 VALUES (?, ?, ?, ?, ?)
                 ''', (payed_amount, payment_time, data.payment_request_id, data.payer_account_number, data.payment_currency))
-                received = {"payment_request_id": data.payment_request_id, "payed_amount": payed_amount, "payer_account_number": data.payer_account_number, "payment_currency": data.payment_currency, "payment_time": payment_time, "status": "executed", "requester_account_number": requester_account_number, "request_amount": request_amount, "request_currency": request_currency, "request_time": request_time, "payer_name": data.name}
+                cursor.execute('SELECT name FROM persons WHERE account_number = ?', (data.payer_account_number,))
+                requester_name = cursor.fetchone()[0]
+                cursor.execute('SELECT payment_id FROM payments WHERE payment_request_id = ? AND payment_time = ?', (data.payment_request_id, payment_time))
+                payment_id = cursor.fetchone()[0]
+                received = {"payment_id": payment_id, "payer_name": data.name, "payed_amount": payed_amount, "payer_account_number": data.payer_account_number, "payment_currency": data.payment_currency, "payment_time": payment_time, "payment_request_id": data.payment_request_id, "requester_name": requester_name, "requester_account_number": requester_account_number, "request_amount": request_amount, "request_currency": request_currency, "request_time": request_time, "status": "executed"}
                 conn.commit()
                 conn.close()
                 return JSONResponse(content={"status": "Payment attempt succeeded", "received": received}, status_code=200)
