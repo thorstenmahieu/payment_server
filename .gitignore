@@ -1,2 +1,3 @@
 /paymentvenv
 /__pycache__
+.db

@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS "payment_requests" (
 	"requester_account_number"	TEXT NOT NULL,
 	"request_amount"	INTEGER NOT NULL,
 	"currency"	TEXT NOT NULL,
-	"request_time"	INTEGER NOT NULL,
+	"request_time"	REAL NOT NULL,
 	"status"	TEXT NOT NULL,
 	PRIMARY KEY("request_id" AUTOINCREMENT),
 	FOREIGN KEY("currency") REFERENCES "currency"("currency_name"),
@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS "payment_requests" (
 CREATE TABLE IF NOT EXISTS "payments" (
 	"payment_id"	INTEGER,
 	"payment_amount"	REAL NOT NULL,
-	"payment_time"	INTEGER NOT NULL,
+	"payment_time"	REAL NOT NULL,
 	"payment_request_id"	INTEGER UNIQUE,
-	"payer_account_number"	INTEGER NOT NULL,
+	"payer_account_number"	TEXT NOT NULL,
 	"currency"	TEXT NOT NULL,
 	PRIMARY KEY("payment_id" AUTOINCREMENT),
 	FOREIGN KEY("currency") REFERENCES "currency"("currency_name"),
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS "payments" (
 );
 CREATE TABLE IF NOT EXISTS "persons" (
 	"account_number"	TEXT,
-	"name"	TEXT NOT NULL,
+	"name"	TEXT ,
 	PRIMARY KEY("account_number")
 );
 
