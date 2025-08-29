@@ -19,7 +19,7 @@ def test_payment_request():
     response = client.post("/payment_requests", json=json )
     
     assert response.status_code == 200
-    data = response.json()[0]
+    data = response.json()
     print(data)
     assert data["received"]["amount"] == 50
     assert data["received"]["name"] == "Thorsten"
@@ -28,7 +28,6 @@ def test_payment_request():
     assert "request_id" in data["received"]
 
 def test_payment_attempts():
-    data = "name=Thorsten&account_number=BE8425437531&amount=50&currency=USD"
     # First, create a payment request to get a valid request_id
     json={
         "name": "Thorsten",
@@ -38,7 +37,7 @@ def test_payment_attempts():
         }
     response = client.post("/payment_requests", json=json)
     assert response.status_code == 200
-    request_id = response.json()[0]["received"]["request_id"]
+    request_id = response.json()["received"]["request_id"]
 
     # Now, attempt to pay the request
     sleep(1)  # Ensure a slight delay to avoid timing issues
@@ -50,7 +49,7 @@ def test_payment_attempts():
         "payment_currency": "USD"
     })
     assert response.status_code == 200
-    data = response.json()[0]
+    data = response.json()
     assert data["status"] == "Payment attempt succeeded"
     assert data["received"]["payment_request_id"] == request_id
     assert data["received"]["payed_amount"] == 50
@@ -90,7 +89,7 @@ def test_expired_payment_request():
         }
     response = client.post("/payment_requests", json=json)
     assert response.status_code == 200
-    request_id = response.json()[0]["received"]["request_id"]
+    request_id = response.json()["received"]["request_id"]
     sleep(61)  
     response = client.post("/payment_attempts", json={
         "payment_request_id": request_id,
@@ -112,7 +111,7 @@ def test_different_currency_payment():
         }
     response = client.post("/payment_requests", json=json)
     assert response.status_code == 200
-    request_id = response.json()[0]["received"]["request_id"]
+    request_id = response.json()["received"]["request_id"]
     # Attempt to pay the request in EUR
     response = client.post("/payment_attempts", json={
         "payment_request_id": request_id,
@@ -121,7 +120,7 @@ def test_different_currency_payment():
         "payment_currency": "EUR"
     })
     assert response.status_code == 200
-    data = response.json()[0]
+    data = response.json()
     assert data["status"] == "Payment attempt succeeded"
     assert data["received"]["payment_request_id"] == request_id
     assert data["received"]["payed_amount"] == 85
@@ -138,7 +137,7 @@ def test_incorrect_amount_payment():
         }
     response = client.post("/payment_requests", json=json)
     assert response.status_code == 200
-    request_id = response.json()[0]["received"]["request_id"]
+    request_id = response.json()["received"]["request_id"]
     # Attempt to pay the request with an incorrect amount
     response = client.post("/payment_attempts", json={
         "payment_request_id": request_id,

@@ -1,11 +1,10 @@
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Optional, Annotated
 import sqlite3
 from datetime import datetime, timedelta
-import pytest
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -69,10 +68,10 @@ async def payment_request(data: Request):
         request_id = cursor.fetchone()[0]
         conn.commit()
         received = {"request_id": request_id, "amount": data.amount, "currency": data.currency, "name": data.name, "request_time" : request_time, "status": "pending"}
-        return {"status": "Payment request received", "received": received
-        }, 200
+        return JSONResponse(content={"status": "Payment request received", "received": received
+        }, status_code=200)
     except sqlite3.Error as e:
-        return {"status": "Error", "error": str(e)}, 500    
+        return JSONResponse(content={"status": "Error", "error": str(e)}, status_code=500)    
     finally: 
         conn.close()
 
@@ -97,16 +96,16 @@ async def payment_attempts(data: Request):
             cursor.execute('SELECT requester_account_number, request_amount,currency, request_time, status FROM payment_requests WHERE request_id = ?', (data.payment_request_id,))
             requester_account_number, request_amount, request_currency, request_time, status = cursor.fetchall()[0]
         except:
-            return {"status": "Payment request not found"}, 400
+            return JSONResponse(content={"status": "Payment request not found"}, status_code=400)
         if status != 'pending':
-            return {"status": "Payment request not pending"}, 400
+            return JSONResponse(content={"status": "Payment request not pending"}, status_code=400)
         elif datetime.now().timestamp() > request_time + EXPIRY_TIME_MINUTES*60:
             cursor.execute('UPDATE payment_requests SET status = ? WHERE request_id = ?', ('expired', data.payment_request_id))
-            cursor.execute('DELETE FROM payment_requests WHERE request_id = ?', (data.payment_request_id,))
             conn.commit()
             conn.close()
-            return {"status": "Payment request expired"}, 400
+            return JSONResponse(content={"status": "Payment request expired"}, status_code=400)
         else:
+            payment_time = datetime.now().timestamp()
             request_amount = float(request_amount)
             cursor.execute('SELECT conversion_rate FROM currency WHERE currency_name = ? ', (request_currency,)) 
             conversion_rate_request = float(cursor.fetchone()[0]) # usd to request_currency
@@ -116,23 +115,24 @@ async def payment_attempts(data: Request):
             conversion_rate_payment = float(cursor.fetchone()[0]) # usd to payment_currency
             amount_in_payment_currency = amount_in_usd * conversion_rate_payment
             payed_amount = float(data.payed_amount)
-            if abs(payed_amount) - abs(amount_in_payment_currency) > 0.01: # allow small rounding differences
+            if (abs(payed_amount - amount_in_payment_currency)) > 0.01: # allow small rounding differences
                 cursor.execute('UPDATE payment_requests SET status = ? WHERE request_id = ?', ('failed', data.payment_request_id))
                 conn.commit()
                 conn.close()
-                return {"status": "Incorrect payed amount"}, 400
+                return JSONResponse(content={"status": "Incorrect payed amount"}, status_code=400)
             else:
                 cursor.execute('UPDATE payment_requests SET status = ? WHERE request_id = ?', ('executed', data.payment_request_id))
                 cursor.execute('''
                 INSERT INTO payments (payment_amount, payment_time, payment_request_id, payer_account_number, currency)
                 VALUES (?, ?, ?, ?, ?)
-                ''', (payed_amount, datetime.now().timestamp(), data.payment_request_id, data.payer_account_number, data.payment_currency))
+                ''', (payed_amount, payment_time, data.payment_request_id, data.payer_account_number, data.payment_currency))
+                received = {"payment_request_id": data.payment_request_id, "payed_amount": payed_amount, "payer_account_number": data.payer_account_number, "payment_currency": data.payment_currency, "payment_time": payment_time, "status": "executed", "requester_account_number": requester_account_number, "request_amount": request_amount, "request_currency": request_currency, "request_time": request_time, "payer_name": data.name}
                 conn.commit()
                 conn.close()
-                return {"status": "Payment attempt succeeded", "received": data}, 200
+                return JSONResponse(content={"status": "Payment attempt succeeded", "received": received}, status_code=200)
                 
     except sqlite3.Error as e:
-        return {"status": "Error", "error": str(e)}, 500
+        return JSONResponse(content={"status": "Error", "error": str(e)}, status_code=500)
     finally: 
         conn.close()
 
