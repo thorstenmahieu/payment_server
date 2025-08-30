@@ -1,18 +1,37 @@
 # Payment server
 
-## Installation
-install venv with dependencies from requirements.txt 
+## Installatie
 
 ```git clone https://github.com/thorstenmahieu/payment_server.git```
-```cd payment_server```
-### Create virtual environment
-```python -m venv myvenv```
+```bash
+cd payment_server
+```
+### Maak een virtual environment
+```bash
+python -m venv myvenv
+```
+### Activeer environment
+macOS/Linux:
+```bash
+source myvenv/bin/activate
+```
+Windows:
+```bash
+myvenv\Scripts\activate
+```
 
-On macOS/Linux, use 
-```source myvenv/bin/activate```
+ ### Installeer de nodige packages
+```bash
+pip install -r requirements.txt
+```
 
- On Windows, use 
- ```myvenv\Scripts\activate```
+ ### Om te testen
+Run het programma met
+```bash
+fastapi dev main.py
+```
+unit-tests uitvoeren met
+```bash
+pytest
+```
 
- ### Install requirements
- ```pip install -r requirements.txt ```
