@@ -5,10 +5,13 @@ from pydantic import BaseModel
 from typing import Optional
 import sqlite3
 from datetime import datetime
+import re
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 EXPIRY_TIME_MINUTES = 1
+iban_regex = r"^([A-Z]{2}[ \-]?[0-9]{2})(?=(?:[ \-]?[A-Z0-9]){9,30}$)((?:[ \-]?[A-Z0-9]{3,5}){2,7})([ \-]?[A-Z0-9]{1,3})?$"
+
 class PaymentForm(BaseModel):
     name: Optional[str] = None
     account_number: str
@@ -51,6 +54,12 @@ async def payment_request(data: Request):
         else:
             return JSONResponse(content={"status": "Unsupported Media Type"}, status_code=415)
         data = PaymentForm(**form_data)
+        if not re.match(iban_regex, data.account_number):
+            return JSONResponse(content={"status": "Invalid IBAN format"}, status_code=400)
+    except Exception as e:
+        return JSONResponse(content={"status": "Invalid input", "error": str(e)}, status_code=400)
+    try:
+        
         conn = sqlite3.connect('payments.db')
         cursor = conn.cursor()
     
@@ -81,11 +90,17 @@ async def payment_attempts(data: Request):
     try:
         if data.headers.get("content-type") == "application/x-www-form-urlencoded":
             form_data = await data.form()
-            data = PaymentAttemptForm(**form_data)
-        else:
+        elif data.headers.get("content-type") == "application/json":
             form_data = await data.json()
-            data = PaymentAttemptForm(**form_data)
+        else:
+            return JSONResponse(content={"status": "Unsupported Media Type"}, status_code=415)
         
+        data = PaymentAttemptForm(**form_data)
+        if not re.match(iban_regex, data.payer_account_number):
+            return JSONResponse(content={"status": "Invalid IBAN format"}, status_code=400)
+    except Exception as e:
+        return JSONResponse(content={"status": "Invalid input", "error": str(e)}, status_code=400)
+    try:
         conn = sqlite3.connect('payments.db')
         cursor = conn.cursor()
         try:
@@ -102,7 +117,6 @@ async def payment_attempts(data: Request):
         elif datetime.now().timestamp() > request_time + EXPIRY_TIME_MINUTES*60:
             cursor.execute('UPDATE payment_requests SET status = ? WHERE request_id = ?', ('expired', data.payment_request_id))
             conn.commit()
-            conn.close()
             return JSONResponse(content={"status": "Payment request expired"}, status_code=400)
         else:
             payment_time = datetime.now().timestamp()
@@ -118,7 +132,6 @@ async def payment_attempts(data: Request):
             if (abs(payed_amount - amount_in_payment_currency)) > 0.01: # allow small rounding differences
                 cursor.execute('UPDATE payment_requests SET status = ? WHERE request_id = ?', ('failed', data.payment_request_id))
                 conn.commit()
-                conn.close()
                 return JSONResponse(content={"status": "Incorrect payed amount"}, status_code=400)
             else:
                 cursor.execute('UPDATE payment_requests SET status = ? WHERE request_id = ?', ('executed', data.payment_request_id))
@@ -132,7 +145,6 @@ async def payment_attempts(data: Request):
                 payment_id = cursor.fetchone()[0]
                 received = {"payment_id": payment_id, "payer_name": data.name, "payed_amount": payed_amount, "payer_account_number": data.payer_account_number, "payment_currency": data.payment_currency, "payment_time": payment_time, "payment_request_id": data.payment_request_id, "requester_name": requester_name, "requester_account_number": requester_account_number, "request_amount": request_amount, "request_currency": request_currency, "request_time": request_time, "status": "executed"}
                 conn.commit()
-                conn.close()
                 return JSONResponse(content={"status": "Payment attempt succeeded", "received": received}, status_code=200)
                 
     except sqlite3.Error as e:

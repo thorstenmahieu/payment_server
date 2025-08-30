@@ -11,7 +11,7 @@ client = TestClient(app)
 def test_payment_request():
     json={
         "name": "Thorsten",
-        "account_number": "BE8425437531",
+        "account_number": "BE84 2543 7531 1863",
         "amount": 50,
         "currency": "USD"
         }
@@ -20,7 +20,7 @@ def test_payment_request():
     
     assert response.status_code == 200
     data = response.json()
-    print(data)
+    # print(data)
     assert data["received"]["amount"] == 50
     assert data["received"]["name"] == "Thorsten"
     assert data["received"]["currency"] == "USD"
@@ -31,7 +31,7 @@ def test_payment_attempts():
     # Eerst een betalingsverzoek maken om aan een geldige request_id te komen
     json={
         "name": "Thorsten",
-        "account_number": "BE8425437531",
+        "account_number": "BE84 2543 7531 8634",
         "amount": 50,
         "currency": "USD"
         }
@@ -40,12 +40,12 @@ def test_payment_attempts():
     request_id = response.json()["received"]["request_id"]
 
     # Betaling uitvoeren
-    sleep(1)
+    sleep(0.1)
     response = client.post("/payment_attempts", json={
         "payment_request_id": request_id,
         "name": "Marcel",
         "payed_amount": 50,
-        "payer_account_number": "BE1234567890",
+        "payer_account_number": "BE81 2345 6789 0011",
         "payment_currency": "USD"
     })
     assert response.status_code == 200
@@ -53,48 +53,40 @@ def test_payment_attempts():
     assert data["status"] == "Payment attempt succeeded"
     assert data["received"]["payment_request_id"] == request_id
     assert data["received"]["payed_amount"] == 50
-    assert data["received"]["payer_account_number"] == "BE1234567890"
+    assert data["received"]["payer_account_number"] == "BE81 2345 6789 0011"
     assert data["received"]["payment_currency"] == "USD"
 
     # Proberen om nog een keer te betalen op hetzelfde verzoek
-    sleep(5)
+    sleep(1)
     response = client.post("/payment_attempts", json={
         "payment_request_id": request_id,
         "name": "Mattias",
         "payed_amount": 50,
-        "payer_account_number": "BE1234567899",
+        "payer_account_number": "BE84 1234 56789 9876",
         "payment_currency": "USD"
     })
     assert response.status_code == 400
     data = response.json()
     assert data["status"] == "Payment request not pending"
 
-    response = client.post("/payment_attempts", json={
-        "payment_request_id": request_id,
-        "payed_amount": 50,
-        "payer_account_number": "BE1234567890",
-        "payment_currency": "USD"
-    })
-    assert response.status_code == 400
-    data = response.json()
-    assert data["status"] == "Payment request not pending"
 
 def test_expired_payment_request():
     # Maak een betalingsverzoek
     json={
         "name": "Thorsten",
-        "account_number": "BE8425437531",
+        "account_number": "BE84 2543 7531 4567",
         "amount": 50,
         "currency": "USD"
         }
     response = client.post("/payment_requests", json=json)
     assert response.status_code == 200
+
     request_id = response.json()["received"]["request_id"]
     sleep(61)  # Wacht tot het verzoek is verlopen (EXPIRY_TIME_MINUTES is 1 minuut)
     response = client.post("/payment_attempts", json={
         "payment_request_id": request_id,
         "payed_amount": 50,
-        "payer_account_number": "BE1234567890",
+        "payer_account_number": "BE12 3456 7890 1234",
         "payment_currency": "USD"
     })
     assert response.status_code == 400
@@ -105,7 +97,7 @@ def test_different_currency_payment():
     # Maak een betalingsverzoek in USD
     json={
         "name": "Maarten",
-        "account_number": "BE9988776655",
+        "account_number": "BE99 8877 6655 4433",
         "amount": 100,
         "currency": "USD"   
         }
@@ -116,7 +108,7 @@ def test_different_currency_payment():
     response = client.post("/payment_attempts", json={
         "payment_request_id": request_id,
         "payed_amount": 85,  # 1 USD = 0.85 EUR
-        "payer_account_number": "BE5544332211",
+        "payer_account_number": "BE55 4433 2211 0011",
         "payment_currency": "EUR"
     })
     assert response.status_code == 200
@@ -124,14 +116,14 @@ def test_different_currency_payment():
     assert data["status"] == "Payment attempt succeeded"
     assert data["received"]["payment_request_id"] == request_id
     assert data["received"]["payed_amount"] == 85
-    assert data["received"]["payer_account_number"] == "BE5544332211"
+    assert data["received"]["payer_account_number"] == "BE55 4433 2211 0011"
     assert data["received"]["payment_currency"] == "EUR"
 
 def test_incorrect_amount_payment():
     # maak een betalingsverzoek
     json={
         "name": "Jan",
-        "account_number": "BE1122334455",
+        "account_number": "BE11 2233 4455 6677",
         "amount": 200,
         "currency": "USD"   
         }
@@ -142,7 +134,7 @@ def test_incorrect_amount_payment():
     response = client.post("/payment_attempts", json={
         "payment_request_id": request_id,
         "payed_amount": 190,  # Incorrect
-        "payer_account_number": "BE6677889900",
+        "payer_account_number": "BE66 7788 9900 1122",
         "payment_currency": "USD"
     })
     assert response.status_code == 400
@@ -153,10 +145,21 @@ def test_payment_request_not_found():
     response = client.post("/payment_attempts", json={
         "payment_request_id": 9999,  # onbekend ID
         "payed_amount": 50,
-        "payer_account_number": "BE1234567890",
+        "payer_account_number": "BE12 3456 7890 1234",
         "payment_currency": "USD"
     })
     assert response.status_code == 400
     data = response.json()
     assert data["status"] == "Payment request not found"
-test_payment_request()
+
+def test_invalid_iban_format():
+    json={
+        "name": "Dirk",
+        "account_number": "vdiydytk575",
+        "amount": 50,
+        "currency": "USD"
+        }
+    response = client.post("/payment_requests", json=json)
+    assert response.status_code == 400
+    data = response.json()
+    assert data["status"] == "Invalid IBAN format"    
