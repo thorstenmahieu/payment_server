@@ -163,3 +163,27 @@ def test_invalid_iban_format():
     assert response.status_code == 400
     data = response.json()
     assert data["status"] == "Invalid IBAN format"    
+
+    # Eerst een geldig betalingsverzoek aanmaken
+    json={
+        "name": "Thorsten",
+        "account_number": "BE84 2543 7531 8634",
+        "amount": 50,
+        "currency": "USD"
+        }
+    response = client.post("/payment_requests", json=json)
+    assert response.status_code == 200
+    request_id = response.json()["received"]["request_id"]
+
+    # Betaling uitvoeren met ongeldig IBAN
+    sleep(0.1)
+    response = client.post("/payment_attempts", json={
+        "payment_request_id": request_id,
+        "name": "Marcel",
+        "payed_amount": 50,
+        "payer_account_number": "1B45428",
+        "payment_currency": "USD"
+    })
+    assert response.status_code == 400
+    data = response.json()
+    assert data["status"] == "Invalid IBAN format"    
