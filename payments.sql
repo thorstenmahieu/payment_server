@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS "persons" (
 	PRIMARY KEY("account_number")
 );
 
+-- Seed data
 INSERT OR IGNORE INTO "currency" (conversion_rate, currency_name) VALUES (1.0, 'USD');
 INSERT OR IGNORE INTO "currency" (conversion_rate, currency_name) VALUES (0.85, 'EUR');
 INSERT OR IGNORE INTO "currency" (conversion_rate, currency_name) VALUES (110.0, 'JPY');
