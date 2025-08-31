@@ -8,7 +8,6 @@ from datetime import datetime, timezone, timedelta
 import re
 from http import HTTPStatus
 from decimal import Decimal, ROUND_HALF_UP
-import logging
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -121,7 +120,7 @@ async def payment_attempts(data: Request):
         except:
             return JSONResponse(content={"status": "Payment request not found"}, status_code=HTTPStatus.BAD_REQUEST)
         if status != 'pending':
-            return JSONResponse(content={"status": "Payment request not pending"}, status_code=HTTPStatus.BAD_REQUEST)
+            return JSONResponse(content={"status": "Payment request expired"}, status_code=HTTPStatus.BAD_REQUEST)
         
         elif (datetime.now(timezone.utc) > expiry_time): 
             cursor.execute('UPDATE payment_requests SET status = ? WHERE request_id = ?', ('expired', data.payment_request_id))

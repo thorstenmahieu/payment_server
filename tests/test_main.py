@@ -106,7 +106,7 @@ def test_payment_attempts():
     })
     assert response.status_code == 400
     data = response.json()
-    assert data["status"] == "Payment request not pending"
+    assert data["status"] == "Payment request expired"
 
 def test_unsupported_currency_payment_attempt():
     json={
@@ -195,6 +195,17 @@ def test_type_checking_payment_attempt():
     data = response.json()
     assert data["status"] == "Invalid input"
 
+    response = client.post("/payment_attempts", json={
+        # payment_request_id ontbreekt, is verplicht
+        "name": "Marcel",
+        "payed_amount": 50,
+        "payer_account_number": "BE81 2345 6789 0011",
+        "payment_currency": "USD"
+    })
+    assert response.status_code == 400
+    data = response.json()
+    assert data["status"] == "Invalid input"
+
 def test_expired_payment_request():
     # Maak een betalingsverzoek
     json={
@@ -216,7 +227,7 @@ def test_expired_payment_request():
     })
     assert response.status_code == 400
     data = response.json()
-    assert data["status"] == "Payment request not pending"
+    assert data["status"] == "Payment request expired"
 
 def test_different_currency_payment():
     # Maak een betalingsverzoek in USD
