@@ -1,4 +1,5 @@
 /paymentvenv
+/myvenv
 **/__pycache__
 payments.db
 /.pytest_cache

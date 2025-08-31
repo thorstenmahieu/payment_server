@@ -1,9 +1,6 @@
 from fastapi.testclient import TestClient
-from fastapi import FastAPI, Request, Form
-from pydantic import BaseModel
 import sys, os
 from time import sleep
-
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from main import app
 
@@ -16,7 +13,6 @@ def test_payment_request():
         "amount": 50,
         "currency": "USD"
         }
-    data_form_urlencoded = "name=Thorsten&account_number=BE842 5437 5312 7345&amount=50&currency=USD"
     response = client.post("/payment_requests", json=json )
     assert response.status_code == 200
     data = response.json()
